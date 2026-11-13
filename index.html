@@ -373,12 +373,12 @@
           </div>
           <div class="stat volt">
             <div class="label">Sudah Di-mint</div>
-            <div class="num" id="statMinted">0</div>
+            <div class="num" id="statMinted">…</div>
             <div class="of">dari 800 NFT</div>
           </div>
           <div class="stat gold">
             <div class="label">Belum Di-mint</div>
-            <div class="num" id="statUnminted">800</div>
+            <div class="num" id="statUnminted">…</div>
             <div class="of">masih tersedia</div>
           </div>
           <div class="stat">
@@ -394,11 +394,11 @@
               <h3>Pool Gratis</h3>
               <span class="pool-total">Token #1 – #200</span>
             </div>
-            <div class="big"><span id="freeRemaining">200</span> <small>dari 200 tersisa</small></div>
+            <div class="big"><span id="freeRemaining">…</span> <small>dari 200 tersisa</small></div>
             <div class="bar bar-free"><div id="freeBar"></div></div>
             <div class="pool-meta">
-              <span>Sudah di-mint: <b id="freeMinted">0</b></span>
-              <span id="freePct">0% terpakai</span>
+              <span>Sudah di-mint: <b id="freeMinted">…</b></span>
+              <span id="freePct">…</span>
             </div>
             <p class="note"><b>Tanpa batas waktu</b> — mint gratis tidak punya tanggal buka atau tutup. Berlaku sampai 200 habis, 1 NFT per dompet (edisi 1–4 dari tiap desain), terbuka untuk siapa saja tanpa allowlist.</p>
           </div>
@@ -407,11 +407,11 @@
               <h3>Pool Berbayar</h3>
               <span class="pool-total">Token #201 – #800</span>
             </div>
-            <div class="big"><span id="paidRemaining">600</span> <small>dari 600 tersisa</small></div>
+            <div class="big"><span id="paidRemaining">…</span> <small>dari 600 tersisa</small></div>
             <div class="bar bar-paid"><div id="paidBar"></div></div>
             <div class="pool-meta">
-              <span>Sudah di-mint: <b id="paidMinted">0</b></span>
-              <span id="paidPct">0% terpakai</span>
+              <span>Sudah di-mint: <b id="paidMinted">…</b></span>
+              <span id="paidPct">…</span>
             </div>
             <p class="note">Harga <b>0,0002 BNB</b> per mint (edisi 5–16 dari tiap desain). <span class="bonus-inline">Bonus: +500.000 BEATS</span><br />Setiap mint berbayar otomatis mendapat bonus <b>500.000 BEATS</b> ke dompet yang sama, dalam transaksi yang sama. Total bonus disediakan <b>300.000.000 BEATS</b> untuk 600 mint berbayar (30% dari total supply 1 miliar BEATS). Harga dapat diubah pemilik sebelum deploy.</p>
           </div>
@@ -419,15 +419,15 @@
 
         <div class="total-progress">
           <div class="pool-meta">
-            <span><b>Progress keseluruhan</b> — <span id="totalLabel">0 / 800 di-mint</span></span>
-            <span id="totalPct">0%</span>
+            <span><b>Progress keseluruhan</b> — <span id="totalLabel">…</span></span>
+            <span id="totalPct">…</span>
           </div>
           <div class="bar bar-total" style="margin-bottom:0"><div id="totalBar"></div></div>
         </div>
 
         <div class="dash-foot">
           <button class="refresh-btn" id="refreshBtn" type="button">↻ Muat Ulang Angka</button>
-          <span class="dash-note" id="dashNote">Kontrak belum di-deploy — angka yang tampil adalah kondisi awal (0 di-mint). Setelah alamat kontrak diisi, halaman ini membaca angka live dari RPC publik BSC.</span>
+          <span class="dash-note" id="dashNote">Memuat angka live dari kontrak…</span>
         </div>
       </section>
 
@@ -621,10 +621,20 @@
          Mint hanya dibuka jika penanda terpisah MINT_OPEN di bawah
          diubah jadi true oleh pemilik saat mint memang siap dibuka. */
       var CONTRACT_ADDRESS = "0x87fc3f7407ff469ad98c20bba41122db69abde10";
-      var MINT_OPEN = true; // Mint DIBUKA sekarang (Arko, 13 Nov 2026).
+      // Gambar NFT di-host di IPFS (Pinata) — galeri dan modal memuat dari gateway ini.
+      // Kalau gateway utama gagal, imgErr ganti ke gateway ipfs.io.
+      var IMG_CID = "bafybeidryu6klnhls4jpvmlhfkie5dn7s27qsybwneb5zr5wml47gokj4e";
+      function imgURL(file) { return "https://gateway.pinata.cloud/ipfs/" + IMG_CID + "/" + file; }
+      function imgErr(el) { el.onerror = null; el.src = "https://ipfs.io/ipfs/" + IMG_CID + "/" + el.getAttribute("data-file"); }
+      var MINT_OPEN = true; // Mint DIBUKA sekarang (Arko, 13 Nov 2026) — mint sudah jalan di kontrak, situs dibuka sekalian.
       // Mint OTOMATIS terbuka Minggu, 15 Nov 2026 pukul 01:00 WIB, walau MINT_OPEN masih false.
       var MINT_OPEN_AT = Date.parse("2026-11-15T01:00:00+07:00");
-      var BSC_RPC = "https://bsc-dataseed1.binance.org";
+      // Beberapa RPC BSC — kalau satu tidak bisa dijangkau dari jaringan pengunjung, coba yang berikutnya.
+      var BSC_RPCS = [
+        "https://bsc-dataseed1.binance.org",
+        "https://bsc-dataseed.bnbchain.org",
+        "https://bsc-rpc.publicnode.com"
+      ];
       var BSC_CHAIN_ID = "0x38"; // 56
       var MAX_SUPPLY = 800, FREE_SUPPLY = 200, PAID_SUPPLY = 600;
       var DEFAULT_PRICE_WEI = "0xb5e620f48000"; // 0,0002 BNB
@@ -659,8 +669,10 @@
       }
 
       /* ================= Dashboard live ================= */
-      function rpcCall(method, params) {
-        return fetch(BSC_RPC, {
+      function rpcCall(method, params, rpcIdx) {
+        rpcIdx = rpcIdx || 0;
+        if (rpcIdx >= BSC_RPCS.length) return Promise.reject(new Error("Semua RPC BSC gagal"));
+        return fetch(BSC_RPCS[rpcIdx], {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params })
@@ -668,6 +680,9 @@
           .then(function (j) {
             if (j.error) throw new Error(j.error.message || "RPC error");
             return j.result;
+          })
+          .catch(function () {
+            return rpcCall(method, params, rpcIdx + 1);
           });
       }
       function ethCall(sel) {
@@ -921,7 +936,7 @@
           btn.className = "card";
           btn.setAttribute("aria-label", "Detail " + d.name + " #" + d.id + ", desain nomor " + d.id);
           btn.innerHTML =
-            '<img src="assets/designs/' + d.file + '" alt="Kartu ' + d.name + ' #' + d.id + ' — ' + d.species + ' level ' + d.tier + '" width="315" height="360" />' +
+            '<img src="' + imgURL(d.file) + '" data-file="' + d.file + '" onerror="imgErr(this)" alt="Kartu ' + d.name + ' #' + d.id + ' — ' + d.species + ' level ' + d.tier + '" width="315" height="360" loading="lazy" />' +
             '<div class="card-body">' +
               '<div class="card-top"><span class="desain-no">DESAIN #' + pad2(d.id) + '</span>' +
               '<span class="badge ' + d.tier + '">' + d.tier + '</span></div>' +
@@ -953,7 +968,9 @@
       /* ================= Modal ================= */
       var backdrop = document.getElementById("modalBackdrop");
       function openModal(d) {
-        document.getElementById("modalImg").src = "assets/framed/" + d.file;
+        document.getElementById("modalImg").src = imgURL(d.file);
+        document.getElementById("modalImg").setAttribute("data-file", d.file);
+        document.getElementById("modalImg").onerror = function () { imgErr(document.getElementById("modalImg")); };
         document.getElementById("modalImg").alt = "Kartu berbingkai " + d.name + " — " + d.species + " level " + d.tier + ", " + d.stars + " bintang";
         var badge = document.getElementById("modalBadge");
         badge.textContent = d.tier;
