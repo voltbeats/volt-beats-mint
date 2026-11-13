@@ -622,6 +622,8 @@
          diubah jadi true oleh pemilik saat mint memang siap dibuka. */
       var CONTRACT_ADDRESS = "0x87fc3f7407ff469ad98c20bba41122db69abde10";
       var MINT_OPEN = false; // Mint BELUM dibuka — ubah ke true hanya saat pemilik membuka mint.
+      // Mint OTOMATIS terbuka Minggu, 15 Nov 2026 pukul 01:00 WIB, walau MINT_OPEN masih false.
+      var MINT_OPEN_AT = Date.parse("2026-11-15T01:00:00+07:00");
       var BSC_RPC = "https://bsc-dataseed1.binance.org";
       var BSC_CHAIN_ID = "0x38"; // 56
       var MAX_SUPPLY = 800, FREE_SUPPLY = 200, PAID_SUPPLY = 600;
@@ -642,7 +644,9 @@
         return /^0x[0-9a-fA-F]{40}$/.test(CONTRACT_ADDRESS);
       }
       function isMintOpen() {
-        return isDeployed() && MINT_OPEN === true;
+        if (!isDeployed()) return false;
+        if (MINT_OPEN === true) return true;
+        return Date.now() >= MINT_OPEN_AT;
       }
       function fmt(n) { return n.toLocaleString("id-ID"); }
       function fmtBNB(weiHex) {
